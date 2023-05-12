@@ -12,7 +12,19 @@ contract NFT is ERC721 {
         _mint(_to, _tokenId);
     }
 
-    function transferNFT(address _to, uint256 _tokenId) public {
-        safeTransferFrom(msg.sender, _to, _tokenId);
+    function transferNFT(address _from, address _to, uint256 _tokenId) public {
+        safeTransferFrom(_from, _to, _tokenId);
     }
+
+    function approveNFT(address _to, uint256 _tokenId) public {
+        approve(_to, _tokenId);
+    }
+    function burnNFT(uint256 _tokenId) public {
+        _burn(_tokenId);
+    }
+
+    function getOwnerOfNFT(uint256 _tokenId) public view returns (address) {
+        return ownerOf(_tokenId);
+    }
+
 }

@@ -7,6 +7,8 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 
 contract Subasta {
 
+    NFT public nftContract;
+
     //Eventos para notificar a los usuarios sobre las subastas
     event NuevaSubasta(uint256 subastaId, address creador);
     event NuevaOferta(uint256 subastaId, address apostador, uint256 cantidad);
@@ -15,9 +17,9 @@ contract Subasta {
     //Struct de una subasta
     struct subasta {
         uint256 idSubasta;
+        address nftContract;
         address creador;
         string nombreArticulo;
-        string simboloArticulo;
         uint256 idNFT;
         string descripcion;
         uint256 precioActual;
@@ -28,25 +30,37 @@ contract Subasta {
     }
 
     //Lista subastas 
-    subasta[] public subastas;
+    mapping(uint256 => subasta) public subastas;
 
     //Lista NFT
     mapping (uint256 => NFT) private nfts;
-    // NFT[] private listaNFT;
+
+    //Unir las instancias de NFT con el idSubasta
+
+
     
     uint256 tokenCounter = 0;
-    uint256 IdSubasta = 0;
+    uint256 idSubasta = 0;
+
+    function getOwner(uint256 _idSubasta) public view returns (address){
+        return nfts[_idSubasta].getOwnerOfNFT(subastas[_idSubasta].idNFT);
+    }
 
     //Funcion para iniciar una nueva subasta
     function iniciarSubasta(string memory _nombreArticulo, string memory _simboloArticulo,
      string memory _descripcion, uint256 _precioInicial, uint256 _duracion) public returns (subasta memory){
 
+            //Craer el NFT
+            nftContract = new NFT(_nombreArticulo, _simboloArticulo);
+            nftContract.createNFT(address(this), tokenCounter);
+            nfts[idSubasta] = nftContract;
+
             //Almacenamos los datos de la subasta en una nueva estructura de la subasta
             subasta memory nuevaSubasta = subasta({
-                idSubasta: IdSubasta,
+                idSubasta: idSubasta,
+                nftContract: address(nftContract),
                 creador: msg.sender,
                 nombreArticulo: _nombreArticulo,
-                simboloArticulo: _simboloArticulo,
                 idNFT: tokenCounter,
                 descripcion: _descripcion,
                 precioActual: _precioInicial,
@@ -56,26 +70,16 @@ contract Subasta {
                 finalizada: false
             });
 
-            //Agregar subasta a la lista de subastas activas
-            subastas.push(nuevaSubasta);
+            //Agregar subasta al mapping de subastas
+            subastas[idSubasta] = nuevaSubasta;
 
-             //Crear un nuevo NFT
-            NFT newNFT = new NFT("", "");
-            newNFT.createNFT(msg.sender, tokenCounter);
-            nfts[tokenCounter] = newNFT;
+            //Evento de una nueva subasta
+            emit NuevaSubasta(idSubasta, msg.sender);
+            idSubasta = idSubasta + 1;
 
             tokenCounter = tokenCounter + 1;
 
-            //Evento de una nueva subasta
-            emit NuevaSubasta(IdSubasta, msg.sender);
-            IdSubasta = IdSubasta + 1;
-
             return nuevaSubasta;
-        }
-
-        //Funcion get subastas activas
-        function getSubastas() public view returns(subasta[] memory){
-        return subastas;
         }
 
         //Función para realizar una oferta
@@ -97,21 +101,20 @@ contract Subasta {
             emit NuevaOferta(_subastaId, msg.sender, msg.value);
         }
 
-        function finalizacionSubasta(uint256 _idSubasta) public {
-            //El id de la subasta que se recibe por parametros esta entre el tamaño del array
-            require(_idSubasta <= subastas.length + 1);
+        function finalizacionSubasta(uint256 _idSubasta) public payable {
+            //El id de la subasta que se recibe por parametros sea menor igul al contador de idSubasta
+            require(_idSubasta <= idSubasta);
             //Solo el creador de la subasta puede llamar a la funcion finalizar
             require(msg.sender == subastas[_idSubasta].creador);
             //Comprobar que la subasta no este en curso
             require(block.timestamp > subastas[_idSubasta].finalizacion, "La subasta no ha finalizado");
-            require(!subastas[_idSubasta].finalizada);
-            require(nfts[subastas[_idSubasta].idNFT].ownerOf(subastas[_idSubasta].idNFT) == msg.sender);
+            
 
             //Paga el ganador al creador de la subasta
             payable (subastas[_idSubasta].ganador).transfer(subastas[_idSubasta].precioActual);
 
             //Enviar NFT al ganador
-            nfts[subastas[_idSubasta].idNFT].transferNFT(subastas[_idSubasta].ganador, subastas[_idSubasta].idNFT);
+            nfts[_idSubasta].transferNFT(address(this), subastas[_idSubasta].ganador, subastas[_idSubasta].idNFT);
             
             //Emitir subasta finalizada
             emit SubastaFinalizada( _idSubasta, subastas[_idSubasta].ganador, subastas[_idSubasta].precioActual);
