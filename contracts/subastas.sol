@@ -34,10 +34,6 @@ contract Subasta {
 
     //Lista NFT
     mapping (uint256 => NFT) private nfts;
-
-    //Unir las instancias de NFT con el idSubasta
-
-
     
     uint256 tokenCounter = 0;
     uint256 idSubasta = 0;
